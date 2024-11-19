@@ -41,6 +41,9 @@ var shininessULoc; // where to put specular exponent for fragment shader
 var uSampler; // add this line to declare uSampler
 var uUseTexture; // add this line to declare uUseTexture
 
+var blendMode = "replace"; // initial blend mode
+var shaderProgram; // declare shaderProgram as a global variable
+
 /* interaction variables */
 var Eye = vec3.clone(defaultEye); // eye position in world space
 var Center = vec3.clone(defaultCenter); // view direction in world space
@@ -239,7 +242,8 @@ function handleKeyDown(event) {
             } // end for all ellipsoids
             break;
         case "KeyB":
-            console.log("KeyB");
+            blendMode = (blendMode === "replace") ? "modulate" : "replace";
+            console.log("Blend mode:", blendMode);
             break;
     } // end switch
 } // end handleKeyDown
@@ -581,6 +585,7 @@ function setupShaders() {
         // texture properties
         uniform sampler2D uSampler; // texture sampler
         uniform bool uUseTexture;   // flag to check if texture should be used
+        uniform int uBlendMode;     // blend mode: 0 for replace, 1 for modulate
         
         // geometry properties
         varying vec3 vWorldPos; // world xyz of fragment
@@ -610,8 +615,13 @@ function setupShaders() {
             // retrieve texture color
             vec4 textureColor = texture2D(uSampler, vUV);
             
-            // combine texture and lighting color
-            vec3 colorOut = uUseTexture ? (lightingColor * textureColor.rgb) : lightingColor;
+            // combine texture and lighting color based on blend mode
+            vec3 colorOut;
+            if (uBlendMode == 0) {
+                colorOut = textureColor.rgb;
+            } else {
+                colorOut = lightingColor * textureColor.rgb;
+            }
             
             // output final color with alpha
             gl_FragColor = vec4(colorOut, textureColor.a);
@@ -634,7 +644,7 @@ function setupShaders() {
             throw "error during vertex shader compile: " + gl.getShaderInfoLog(vShader);  
             gl.deleteShader(vShader);
         } else { // no compile errors
-            var shaderProgram = gl.createProgram(); // create the single shader program
+            shaderProgram = gl.createProgram(); // create the single shader program
             gl.attachShader(shaderProgram, fShader); // put frag shader in program
             gl.attachShader(shaderProgram, vShader); // put vertex shader in program
             gl.linkProgram(shaderProgram); // link program into gl context
@@ -671,6 +681,7 @@ function setupShaders() {
 
                 uSampler = gl.getUniformLocation(shaderProgram, "uSampler"); // add this line
                 uUseTexture = gl.getUniformLocation(shaderProgram, "uUseTexture"); // add this line
+                var blendModeULoc = gl.getUniformLocation(shaderProgram, "uBlendMode"); // add this line
 
                 
                 // pass global constants into fragment uniforms
@@ -679,6 +690,7 @@ function setupShaders() {
                 gl.uniform3fv(lightDiffuseULoc,lightDiffuse); // pass in the light's diffuse emission
                 gl.uniform3fv(lightSpecularULoc,lightSpecular); // pass in the light's specular emission
                 gl.uniform3fv(lightPositionULoc,lightPosition); // pass in the light's position
+                gl.uniform1i(blendModeULoc, (blendMode === "replace") ? 0 : 1); // pass in the blend mode
             } // end if no shader program link errors
         } // end if no compile errors
     } // end try 
@@ -769,6 +781,7 @@ function renderModels() {
         gl.bindTexture(gl.TEXTURE_2D, textures[whichTriSet]);
         gl.uniform1i(uSampler, 0);
         gl.uniform1i(uUseTexture, true);
+        gl.uniform1i(gl.getUniformLocation(shaderProgram, "uBlendMode"), (blendMode === "replace") ? 0 : 1); // update blend mode
 
         // triangle buffer: activate and render
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,triangleBuffers[whichTriSet]); // activate
