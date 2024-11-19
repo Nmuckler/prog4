@@ -310,11 +310,24 @@ function loadTexture(imageUrl) {
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-        gl.generateMipmap(gl.TEXTURE_2D);
+
+        // Check if the image dimensions are power of two
+        if (isPowerOfTwo(image.width) && isPowerOfTwo(image.height)) {
+            gl.generateMipmap(gl.TEXTURE_2D);
+        } else {
+            // If not, set texture parameters to avoid using mipmaps
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        }
     };
     image.src = imageUrl;
 
     return texture;
+}
+
+function isPowerOfTwo(value) {
+    return (value & (value - 1)) === 0;
 }
 
 // read models in, load them into webgl buffers
